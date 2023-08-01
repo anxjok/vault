@@ -924,11 +924,6 @@ func TestAgent_Template_Basic(t *testing.T) {
 
 			// Create a config file
 			config := `
-vault {
-  address = "%s"
-	tls_skip_verify = true
-}
-
 auto_auth {
     method "approle" {
         mount_path = "auth/approle"
@@ -954,13 +949,21 @@ auto_auth {
 			// flatten the template configs
 			templateConfig := strings.Join(templateConfigStrings, " ")
 
-			config = fmt.Sprintf(config, serverClient.Address(), roleIDPath, secretIDPath, templateConfig, exitAfterAuth)
+			config = fmt.Sprintf(config, roleIDPath, secretIDPath, templateConfig, exitAfterAuth)
 			configPath := makeTempFile(t, "config.hcl", config)
 			defer os.Remove(configPath)
 
 			// Start the agent
 			ui, cmd := testAgentCommand(t, logger)
-			cmd.client = serverClient
+			// Force Agent to generate its own client based on environment variables.
+			// cmd.client = serverClient
+
+			t.Setenv("VAULT_ADDR", "https://"+cluster.Cores[0].Listeners[0].Address.String())
+			// Passes with VAULT_CACERT
+			// t.Setenv("VAULT_CACERT", cluster.CACertPEMFile)
+
+			// Fails with VAULT_CACERT_BYTES
+			t.Setenv("VAULT_CACERT_BYTES", string(cluster.CACertPEM))
 			cmd.startedCh = make(chan struct{})
 
 			wg := &sync.WaitGroup{}
